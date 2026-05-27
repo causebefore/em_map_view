@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { parseMapFile, detectFormat, MapParseResult } from './parser';
+import { parseMapFile, MapParseResult } from './parser';
 import { getConfig } from './config';
 import { MapTreeProvider } from './treeView/mapTreeProvider';
 import { WebviewManager } from './webview/webviewManager';
@@ -76,19 +76,10 @@ export function activate(context: vscode.ExtensionContext) {
 function analyzeMapFile(uri: vscode.Uri) {
   try {
     const content = fs.readFileSync(uri.fsPath, 'utf-8');
-    const format = detectFormat(content);
-
-    if (format && format !== 'Keil') {
-      vscode.window.showWarningMessage(
-        `Detected ${format} MAP format. Currently only Keil MDK is supported. GCC and IAR support coming soon.`
-      );
-      return;
-    }
-
     currentData = parseMapFile(content);
 
     if (currentData.modules.length === 0 && currentData.symbols.length === 0) {
-      vscode.window.showWarningMessage('No data parsed. Ensure it is a valid Keil MDK MAP file.');
+      vscode.window.showWarningMessage('无法识别此 MAP 文件，请确认是 Keil MDK 生成的 .map 文件');
       return;
     }
 
@@ -96,7 +87,7 @@ function analyzeMapFile(uri: vscode.Uri) {
     treeProvider?.refresh(currentData);
     webviewManager?.show(currentData);
   } catch (err: any) {
-    vscode.window.showErrorMessage(`Failed to parse MAP file: ${err.message}`);
+    vscode.window.showErrorMessage(`MAP 文件解析失败: ${err.message}`);
   }
 }
 
