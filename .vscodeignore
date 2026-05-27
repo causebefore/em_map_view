@@ -1,0 +1,8 @@
+.vscode/**
+src/**
+webview/**
+test/**
+node_modules/**
+docs/**
+*.ts
+!dist/**
