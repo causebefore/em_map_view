@@ -4,8 +4,12 @@
   "description": "Keil MDK MAP file analysis for embedded developers",
   "version": "0.1.0",
   "publisher": "your-publisher-id",
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["Other"],
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
     "onLanguage:map",
     "onCommand:emMapView.openMapFile",
@@ -48,9 +52,15 @@
         }
       ],
       "commandPalette": [
-        { "command": "emMapView.openMapFile" },
-        { "command": "emMapView.analyzeCurrentFile" },
-        { "command": "emMapView.lookupAddress" }
+        {
+          "command": "emMapView.openMapFile"
+        },
+        {
+          "command": "emMapView.analyzeCurrentFile"
+        },
+        {
+          "command": "emMapView.lookupAddress"
+        }
       ]
     },
     "configuration": {
@@ -91,11 +101,11 @@
     "package": "vsce package"
   },
   "devDependencies": {
+    "@types/node": "^25.9.1",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^2.22.0",
     "esbuild": "^0.20.0",
     "typescript": "^5.3.0",
     "vitest": "^1.2.0"
-  },
-  "dependencies": {}
+  }
 }
