@@ -24,15 +24,23 @@ export function activate(context: vscode.ExtensionContext) {
 
   // Register commands
   context.subscriptions.push(
-    vscode.commands.registerCommand('emMapView.openMapFile', async () => {
-      const uris = await vscode.window.showOpenDialog({
-        filters: { 'Map Files': ['map'] },
-        canSelectMany: false,
-      });
-      if (uris?.[0]) {
-        const doc = await vscode.workspace.openTextDocument(uris[0]);
+    vscode.commands.registerCommand('emMapView.openMapFile', async (uri?: vscode.Uri) => {
+      if (uri) {
+        // Right-clicked on a file in Explorer
+        const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.window.showTextDocument(doc);
-        analyzeMapFile(uris[0]);
+        analyzeMapFile(uri);
+      } else {
+        // No file selected, show file picker
+        const uris = await vscode.window.showOpenDialog({
+          filters: { 'Map Files': ['map'] },
+          canSelectMany: false,
+        });
+        if (uris?.[0]) {
+          const doc = await vscode.workspace.openTextDocument(uris[0]);
+          await vscode.window.showTextDocument(doc);
+          analyzeMapFile(uris[0]);
+        }
       }
     }),
 
