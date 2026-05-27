@@ -2,11 +2,25 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { parseMapFile, MapParseResult } from './parser';
 import { getConfig } from './config';
+import { MapTreeProvider } from './treeView/mapTreeProvider';
+import { WebviewManager } from './webview/webviewManager';
 
 let currentData: MapParseResult | null = null;
+let treeProvider: MapTreeProvider | undefined;
+let webviewManager: WebviewManager | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   vscode.commands.executeCommand('setContext', 'emMapView:hasData', false);
+
+  // Initialize TreeView
+  treeProvider = new MapTreeProvider();
+  context.subscriptions.push(
+    vscode.window.registerTreeDataProvider('emMapView.mapExplorer', treeProvider)
+  );
+
+  // Initialize WebviewManager
+  webviewManager = new WebviewManager(context.extensionUri);
+  context.subscriptions.push(webviewManager);
 
   // Register commands
   context.subscriptions.push(
@@ -41,12 +55,12 @@ export function activate(context: vscode.ExtensionContext) {
         placeHolder: '0x08000100',
       });
       if (addr) {
-        // Handled by webview
+        webviewManager?.show(currentData);
       }
     }),
 
     vscode.commands.registerCommand('emMapView.selectModule', (moduleName: string) => {
-      // Will be wired to webview in Task 9
+      webviewManager?.highlightModule(moduleName);
     })
   );
 
@@ -77,10 +91,13 @@ function analyzeMapFile(uri: vscode.Uri) {
     }
 
     vscode.commands.executeCommand('setContext', 'emMapView:hasData', true);
-    // TreeView and Webview will be wired in Task 9
+    treeProvider?.refresh(currentData);
+    webviewManager?.show(currentData);
   } catch (err: any) {
     vscode.window.showErrorMessage(`Failed to parse MAP file: ${err.message}`);
   }
 }
 
-export function deactivate() {}
+export function deactivate() {
+  webviewManager?.dispose();
+}
