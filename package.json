@@ -11,9 +11,10 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:map",
+    "onStartupFinished",
     "onCommand:emMapView.openMapFile",
-    "onCommand:emMapView.analyzeCurrentFile"
+    "onCommand:emMapView.analyzeCurrentFile",
+    "onCommand:emMapView.lookupAddress"
   ],
   "main": "./dist/extension.js",
   "contributes": {

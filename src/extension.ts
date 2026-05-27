@@ -15,7 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Initialize TreeView
   treeProvider = new MapTreeProvider();
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider('emMapView.mapExplorer', treeProvider)
+    vscode.window.registerTreeDataProvider('emMapView.analysis', treeProvider)
   );
 
   // Initialize WebviewManager
