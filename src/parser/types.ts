@@ -42,6 +42,34 @@ export interface MapTotals {
   ramUsed: number;
 }
 
+export type DataSourceKind = 'official' | 'computed' | 'derived' | 'inferred' | 'unavailable';
+
+export interface DataSource {
+  kind: DataSourceKind;
+  label: string;
+  detail?: string;
+}
+
+export interface MapTotalsSources {
+  code: DataSource;
+  roData: DataSource;
+  rwData: DataSource;
+  ziData: DataSource;
+  flashTotal: DataSource;
+  flashUsed: DataSource;
+  ramTotal: DataSource;
+  ramUsed: DataSource;
+}
+
+export interface MapSources {
+  formatType: DataSource;
+  symbols: DataSource;
+  sections: DataSource;
+  modules: DataSource;
+  memoryRegions: DataSource;
+  totals: MapTotalsSources;
+}
+
 export interface MapParseResult {
   formatType: 'Keil' | 'GCC' | 'IAR';
   symbols: MapSymbol[];
@@ -49,6 +77,7 @@ export interface MapParseResult {
   modules: MapModule[];
   memoryRegions: MemoryRegion[];
   totals: MapTotals;
+  sources: MapSources;
 }
 
 export interface SymbolLookupResult {

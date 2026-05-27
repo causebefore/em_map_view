@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onUnmounted, ref } from 'vue';
 import { postMessage, onMessage } from '../vscode';
 
 interface LookupResult { name: string; address: number; size: number; section: string; offset: number; isApproximate?: boolean; }
@@ -15,10 +15,18 @@ function lookup() {
   postMessage({ type: 'requestAddressLookup', addresses });
 }
 
-onMessage((msg) => {
+const disposeMessageListener = onMessage((msg) => {
   if (msg.type === 'addressLookupResult') {
-    results.value = msg.results;
+    searched.value = true;
+    if (Array.isArray(msg.addresses)) {
+      input.value = msg.addresses.join('\n');
+    }
+    results.value = Array.isArray(msg.results) ? msg.results : [];
   }
+});
+
+onUnmounted(() => {
+  disposeMessageListener();
 });
 
 function formatHex(n: number): string {
@@ -54,24 +62,51 @@ function formatHex(n: number): string {
 
 <style scoped>
 .section { margin-bottom: 20px; }
-.section-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--vscode-editorWidget-border, #ccc); }
-.lookup-input { display: flex; gap: 8px; margin-bottom: 12px; }
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--panel-border, var(--vscode-editorWidget-border, #ccc));
+}
+.lookup-input {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+}
 textarea {
-  flex: 1; background: var(--vscode-input-background, #fff); color: var(--vscode-input-foreground, #333);
-  border: 1px solid var(--vscode-input-border, #ccc); border-radius: 3px; padding: 6px 8px;
-  font-family: var(--vscode-editor-font-family, monospace); font-size: 12px; resize: vertical;
+  min-height: 58px;
+  background: var(--vscode-input-background, #fff);
+  color: var(--vscode-input-foreground, #333);
+  border: 1px solid var(--vscode-input-border, var(--panel-border, #ccc));
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+  resize: vertical;
 }
 textarea:focus { outline: 1px solid var(--vscode-focusBorder, #0078d4); border-color: var(--vscode-focusBorder, #0078d4); }
 button {
-  padding: 6px 16px; background: var(--vscode-button-background, #0078d4); color: var(--vscode-button-foreground, #fff);
-  border: none; border-radius: 3px; cursor: pointer; font-size: 12px; align-self: flex-end;
+  min-width: 86px;
+  height: 34px;
+  padding: 0 16px;
+  background: var(--vscode-button-background, #0078d4);
+  color: var(--vscode-button-foreground, #fff);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
 }
 button:hover { background: var(--vscode-button-hoverBackground, #106ebe); }
 .results table { width: 100%; border-collapse: collapse; font-size: 12px; }
-th, td { padding: 4px 8px; text-align: left; border-bottom: 1px solid var(--vscode-editorWidget-border, #eee); }
-th { font-weight: 600; color: var(--vscode-descriptionForeground, #999); }
+th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--panel-border, var(--vscode-editorWidget-border, #eee)); }
+th { font-weight: 600; color: var(--text-muted, var(--vscode-descriptionForeground, #999)); }
 .mono { font-family: var(--vscode-editor-font-family, monospace); }
 .exact { color: var(--vscode-charts-green, #4CAF50); }
 .approx { color: var(--vscode-charts-orange, #FF9800); }
 .no-match { color: var(--vscode-errorForeground, #e53935); font-style: italic; }
+.no-result { color: var(--text-muted, var(--vscode-descriptionForeground, #999)); }
 </style>

@@ -1,16 +1,19 @@
 # EM Map View
 
+English | [简体中文](README.zh-CN.md)
+
 A VSCode extension for analyzing Keil MDK .map files, designed for embedded developers.
 
 ## Features
 
 - **Memory Layout Visualization** - Canvas-based Flash/RAM usage bar charts with color-coded segments
-- **Module Size Analysis** - Horizontal bar chart showing top N modules by Flash consumption
+- **Module Size Analysis** - Horizontal bar chart showing top N modules or derived object contributions
 - **Symbol Browser** - Searchable, filterable symbol list with type filtering (Code/Data/RO/RW/BSS)
 - **Address Lookup** - Single or batch address reverse lookup with exact/approximate matching
+- **Source Provenance Badges** - Marks analysis values as Official, Computed, Derived, Inferred, or N/A
 - **Memory Warnings** - Configurable usage thresholds with visual indicators
 - **TreeView Integration** - Native VSCode TreeView in Explorer sidebar
-- **Raw File Access** - Original .map text remains visible in the editor
+- **Keil MDK Friendly Workflow** - Opens `.map` files directly and analyzes them asynchronously
 
 ## Usage
 
@@ -22,29 +25,45 @@ A VSCode extension for analyzing Keil MDK .map files, designed for embedded deve
 4. Click modules in the bar chart to highlight them in the TreeView
 5. Enter addresses in the lookup panel for reverse lookup
 
+## Data Source Labels
+
+EM Map View keeps parsed values visible even when they are not all equally authoritative. Badges show how each value was obtained:
+
+| Label      | Meaning                                                                    |
+| ---------- | -------------------------------------------------------------------------- |
+| Official   | Parsed directly from a Keil MAP section, such as Grand Totals or regions   |
+| Computed   | Calculated from official values, such as Flash Used or RAM Used            |
+| Derived    | Aggregated from related MAP rows, such as Memory Map object contributions  |
+| Inferred   | Estimated from available usage data because capacity/regions were missing  |
+| N/A        | Not available from the current MAP file                                    |
+
+When `Image Component Sizes` is missing, module bars may still be shown as `Derived` from Memory Map object rows. This keeps useful analysis visible while avoiding ambiguity with official Keil component-size data.
+
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `EM Map View: Open MAP File` | Open file picker and analyze |
+| Command                             | Description                  |
+| ----------------------------------- | ---------------------------- |
+| `EM Map View: Open MAP File`        | Open file picker and analyze |
 | `EM Map View: Analyze Current File` | Analyze the active .map file |
-| `EM Map View: Lookup Address` | Reverse address lookup |
+| `EM Map View: Lookup Address`       | Reverse address lookup       |
 
 ## Configuration
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `emMapView.warningThreshold` | 80 | Memory usage warning threshold (%) |
-| `emMapView.criticalThreshold` | 95 | Memory usage critical threshold (%) |
-| `emMapView.topModulesCount` | 20 | Number of top modules in bar chart |
+| Setting                       | Default | Description                         |
+| ----------------------------- | ------- | ----------------------------------- |
+| `emMapView.warningThreshold`  | 80      | Memory usage warning threshold (%)  |
+| `emMapView.criticalThreshold` | 95      | Memory usage critical threshold (%) |
+| `emMapView.topModulesCount`   | 20      | Number of top modules in bar chart  |
 
 ## Supported Formats
 
 - **Keil MDK** (armlink) - Full support
+- GCC/ARM LD and IAR are detected as unsupported formats so the UI can report the format honestly
 
 Planned:
-- GCC/ARM LD
-- IAR
+
+- GCC/ARM LD parsing
+- IAR parsing
 
 ## Development
 
@@ -58,6 +77,12 @@ npm run build
 
 # Run tests
 npm test
+
+# Type check
+npm run lint
+
+# Package VSIX
+npm run package
 
 # Launch extension in VSCode
 # Press F5 in VSCode

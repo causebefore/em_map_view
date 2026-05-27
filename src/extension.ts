@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
-import { parseMapFile, MapParseResult } from './parser';
-import { getConfig } from './config';
+import { TextDecoder } from 'util';
+import { findSymbolByAddress, parseHexAddress, parseMapFile, MapParseResult } from './parser';
 import { MapTreeProvider } from './treeView/mapTreeProvider';
 import { WebviewManager } from './webview/webviewManager';
 
@@ -22,32 +21,39 @@ export function activate(context: vscode.ExtensionContext) {
   webviewManager = new WebviewManager(context.extensionUri);
   context.subscriptions.push(webviewManager);
 
+  const activeEditor = vscode.window.activeTextEditor;
+  if (activeEditor && isMapDocument(activeEditor.document)) {
+    analyzeMapContent(activeEditor.document.getText());
+  }
+
+  context.subscriptions.push(
+    vscode.workspace.onDidOpenTextDocument((document) => {
+      if (isMapDocument(document)) {
+        analyzeMapContent(document.getText());
+      }
+    })
+  );
+
   // Register commands
   context.subscriptions.push(
     vscode.commands.registerCommand('emMapView.openMapFile', async (uri?: vscode.Uri) => {
       if (uri) {
-        // Right-clicked on a file in Explorer
-        const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.window.showTextDocument(doc);
-        analyzeMapFile(uri);
+        await analyzeMapFile(uri);
       } else {
-        // No file selected, show file picker
         const uris = await vscode.window.showOpenDialog({
           filters: { 'Map Files': ['map'] },
           canSelectMany: false,
         });
         if (uris?.[0]) {
-          const doc = await vscode.workspace.openTextDocument(uris[0]);
-          await vscode.window.showTextDocument(doc);
-          analyzeMapFile(uris[0]);
+          await analyzeMapFile(uris[0]);
         }
       }
     }),
 
-    vscode.commands.registerCommand('emMapView.analyzeCurrentFile', () => {
+    vscode.commands.registerCommand('emMapView.analyzeCurrentFile', async () => {
       const editor = vscode.window.activeTextEditor;
-      if (editor && editor.document.fileName.endsWith('.map')) {
-        analyzeMapFile(editor.document.uri);
+      if (editor && isMapDocument(editor.document)) {
+        analyzeMapContent(editor.document.getText());
       } else {
         vscode.window.showWarningMessage('Current file is not a .map file');
       }
@@ -63,7 +69,25 @@ export function activate(context: vscode.ExtensionContext) {
         placeHolder: '0x08000100',
       });
       if (addr) {
+        const parsedAddr = parseHexAddress(addr);
+        if (parsedAddr === null) {
+          vscode.window.showWarningMessage(`Invalid hex address: ${addr}`);
+          return;
+        }
+
+        const result = findSymbolByAddress(currentData.symbols, parsedAddr);
         webviewManager?.show(currentData);
+        webviewManager?.lookupAddresses([addr]);
+
+        if (result) {
+          const offset = result.offset === 0 ? '' : ` + ${result.offset}`;
+          const prefix = result.isApproximate ? 'Nearest symbol' : 'Symbol';
+          vscode.window.showInformationMessage(
+            `${prefix}: ${result.name}${offset} (0x${result.address.toString(16).toUpperCase().padStart(8, '0')})`
+          );
+        } else {
+          vscode.window.showWarningMessage(`No symbol found for ${addr}`);
+        }
       }
     }),
 
@@ -73,22 +97,43 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-function analyzeMapFile(uri: vscode.Uri) {
+async function analyzeMapFile(uri: vscode.Uri) {
   try {
-    const content = fs.readFileSync(uri.fsPath, 'utf-8');
+    const bytes = await vscode.workspace.fs.readFile(uri);
+    analyzeMapContent(new TextDecoder('utf-8').decode(bytes));
+  } catch (err: unknown) {
+    vscode.window.showErrorMessage(`MAP 文件读取失败: ${errorMessage(err)}`);
+  }
+}
+
+function analyzeMapContent(content: string) {
+  try {
     currentData = parseMapFile(content);
 
     if (currentData.modules.length === 0 && currentData.symbols.length === 0) {
-      vscode.window.showWarningMessage('无法识别此 MAP 文件，请确认是 Keil MDK 生成的 .map 文件');
+      const format = currentData.formatType === 'Keil' ? 'Keil MDK' : currentData.formatType;
+      currentData = null;
+      vscode.commands.executeCommand('setContext', 'emMapView:hasData', false);
+      treeProvider?.clear();
+      webviewManager?.clear();
+      vscode.window.showWarningMessage(`无法解析 ${format} MAP 文件：当前仅支持 Keil MDK 格式`);
       return;
     }
 
     vscode.commands.executeCommand('setContext', 'emMapView:hasData', true);
     treeProvider?.refresh(currentData);
     webviewManager?.show(currentData);
-  } catch (err: any) {
-    vscode.window.showErrorMessage(`MAP 文件解析失败: ${err.message}`);
+  } catch (err: unknown) {
+    vscode.window.showErrorMessage(`MAP 文件解析失败: ${errorMessage(err)}`);
   }
+}
+
+function isMapDocument(document: vscode.TextDocument): boolean {
+  return document.fileName.toLowerCase().endsWith('.map');
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 export function deactivate() {

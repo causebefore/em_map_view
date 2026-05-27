@@ -1,6 +1,8 @@
 node_modules/
 dist/
 out/
+.codegraph/
+Template.map
 *.vsix
 .DS_Store
 Thumbs.db

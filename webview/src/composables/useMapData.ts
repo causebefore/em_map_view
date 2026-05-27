@@ -1,5 +1,26 @@
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { onMessage, postMessage } from '../vscode';
+import type { DataSource } from '../sourceMetadata';
+
+export interface MapTotalsSources {
+  code: DataSource;
+  roData: DataSource;
+  rwData: DataSource;
+  ziData: DataSource;
+  flashTotal: DataSource;
+  flashUsed: DataSource;
+  ramTotal: DataSource;
+  ramUsed: DataSource;
+}
+
+export interface MapSources {
+  formatType: DataSource;
+  symbols: DataSource;
+  sections: DataSource;
+  modules: DataSource;
+  memoryRegions: DataSource;
+  totals: MapTotalsSources;
+}
 
 export interface MapParseResult {
   formatType: string;
@@ -16,6 +37,7 @@ export interface MapParseResult {
     ramTotal: number;
     ramUsed: number;
   };
+  sources: MapSources;
 }
 
 export interface MapViewConfig {
@@ -28,8 +50,10 @@ export const mapData = ref<MapParseResult | null>(null);
 export const config = ref<MapViewConfig>({ warningThreshold: 80, criticalThreshold: 95, topModulesCount: 20 });
 
 export function useMapData() {
+  let disposeMessageListener: (() => void) | undefined;
+
   onMounted(() => {
-    onMessage((msg) => {
+    disposeMessageListener = onMessage((msg) => {
       switch (msg.type) {
         case 'updateData':
           mapData.value = msg.data;
@@ -44,6 +68,11 @@ export function useMapData() {
       }
     });
     postMessage({ type: 'ready' });
+  });
+
+  onUnmounted(() => {
+    disposeMessageListener?.();
+    disposeMessageListener = undefined;
   });
 
   return { mapData, config };

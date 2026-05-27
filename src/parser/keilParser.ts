@@ -4,12 +4,18 @@ import type {
   MemoryRegion,
   MapSection,
   MapTotals,
-  MapParseResult
+  MapParseResult,
+  DataSource,
+  MapSources
 } from './types';
 
 // ============================================================
 // Helper functions
 // ============================================================
+
+function source(kind: DataSource['kind'], label: string, detail?: string): DataSource {
+  return detail ? { kind, label, detail } : { kind, label };
+}
 
 function computeTotals(
   sections: MapSection[],
@@ -94,6 +100,103 @@ function computeTotals(
   return totals;
 }
 
+function buildSources(input: {
+  symbols: MapSymbol[];
+  sections: MapSection[];
+  modules: MapModule[];
+  memoryRegions: MemoryRegion[];
+  explicitTotals: MapTotals | null;
+  hasComponentSizeModules: boolean;
+  hasDerivedMemoryMapModules: boolean;
+  hasOfficialMemoryRegions: boolean;
+  usedInferredMemoryRegions: boolean;
+}): MapSources {
+  const official = (detail: string) => source('official', 'Official', detail);
+  const computed = (detail: string) => source('computed', 'Computed', detail);
+  const derived = (detail: string) => source('derived', 'Derived', detail);
+  const inferred = (detail: string) => source('inferred', 'Inferred', detail);
+  const unavailable = (detail: string) => source('unavailable', 'Unavailable', detail);
+
+  const hasExplicitTotals = input.explicitTotals !== null;
+  const usesSectionFallback = !hasExplicitTotals && input.modules.length === 0 && input.sections.length > 0;
+  const usesRegionFallback = !hasExplicitTotals &&
+    input.modules.length === 0 &&
+    input.sections.length === 0 &&
+    input.memoryRegions.some(region => region.used > 0);
+
+  let moduleSource: DataSource;
+  if (input.hasComponentSizeModules) {
+    moduleSource = official('Parsed from Image Component Sizes object table.');
+  } else if (input.hasDerivedMemoryMapModules) {
+    moduleSource = derived('Aggregated from Memory Map object rows because Component Sizes was missing.');
+  } else {
+    moduleSource = unavailable('No Component Sizes object table or usable Memory Map object rows were found.');
+  }
+
+  let totalPartSource: DataSource;
+  if (hasExplicitTotals) {
+    totalPartSource = official('Parsed from Grand Totals in Image Component Sizes.');
+  } else if (input.hasComponentSizeModules) {
+    totalPartSource = computed('Summed from official Image Component Sizes object rows.');
+  } else if (input.hasDerivedMemoryMapModules) {
+    totalPartSource = derived('Summed from Memory Map object rows.');
+  } else if (usesSectionFallback) {
+    totalPartSource = derived('Estimated from parsed execution regions.');
+  } else {
+    totalPartSource = unavailable('No reliable size totals were found.');
+  }
+
+  let usedSource: DataSource;
+  if (hasExplicitTotals) {
+    usedSource = computed('Computed from official Grand Totals values.');
+  } else if (input.hasComponentSizeModules) {
+    usedSource = computed('Computed from summed official module rows.');
+  } else if (input.hasDerivedMemoryMapModules) {
+    usedSource = derived('Computed from Memory Map object row aggregation.');
+  } else if (usesSectionFallback) {
+    usedSource = derived('Computed from parsed execution region sizes.');
+  } else if (usesRegionFallback) {
+    usedSource = derived('Taken from Memory Map region usage because detailed totals were unavailable.');
+  } else {
+    usedSource = unavailable('No usage data was found.');
+  }
+
+  let capacitySource: DataSource;
+  if (input.usedInferredMemoryRegions) {
+    capacitySource = inferred('Capacity was inferred from usage because no Memory Map regions were present.');
+  } else if (input.hasOfficialMemoryRegions) {
+    capacitySource = official('Parsed from Load/Execution Region Max values.');
+  } else {
+    capacitySource = unavailable('No memory capacity data was found.');
+  }
+
+  return {
+    formatType: official('Detected as Keil MDK/armlink MAP format.'),
+    symbols: input.symbols.length > 0
+      ? official('Parsed from Global Symbols.')
+      : unavailable('No Global Symbols entries were found.'),
+    sections: input.sections.length > 0
+      ? official('Parsed from Memory Map execution regions.')
+      : unavailable('No execution regions were found.'),
+    modules: moduleSource,
+    memoryRegions: input.usedInferredMemoryRegions
+      ? inferred('Synthetic FLASH/RAM regions were created from usage values.')
+      : input.hasOfficialMemoryRegions
+        ? official('Parsed from Memory Map Load/Execution Region entries.')
+        : unavailable('No Memory Map region data was found.'),
+    totals: {
+      code: totalPartSource,
+      roData: totalPartSource,
+      rwData: totalPartSource,
+      ziData: totalPartSource,
+      flashUsed: usedSource,
+      ramUsed: usedSource,
+      flashTotal: capacitySource,
+      ramTotal: capacitySource
+    }
+  };
+}
+
 function inferMemoryRegions(
   modules: MapModule[],
   memoryRegions: MemoryRegion[],
@@ -135,6 +238,62 @@ function nextPow2(value: number, minSize: number): number {
   return size;
 }
 
+function getOrCreateModule(moduleMap: Map<string, MapModule>, name: string): MapModule {
+  let module = moduleMap.get(name);
+  if (!module) {
+    module = {
+      name,
+      code: 0,
+      ro_data: 0,
+      rw_data: 0,
+      zi_data: 0
+    };
+    moduleMap.set(name, module);
+  }
+  return module;
+}
+
+function addMemoryMapModuleUsage(
+  moduleMap: Map<string, MapModule>,
+  objectName: string,
+  size: number,
+  type: string,
+  attr: string
+): void {
+  if (!objectName || size <= 0) return;
+  if (/^(PAD|FILL)$/i.test(objectName)) return;
+
+  const module = getOrCreateModule(moduleMap, objectName);
+  if (/^Code$/i.test(type)) {
+    module.code += size;
+  } else if (/^Data$/i.test(type) && /^RO$/i.test(attr)) {
+    module.ro_data += size;
+  } else if (/^Data$/i.test(type) && /^RW$/i.test(attr)) {
+    module.rw_data += size;
+  } else if (/^Zero$/i.test(type)) {
+    module.zi_data += size;
+  }
+}
+
+function parseMemoryMapObjectLine(trimmed: string): {
+  size: number;
+  type: string;
+  attr: string;
+  objectName: string;
+} | null {
+  const match = trimmed.match(
+    /^0x[0-9a-fA-F]+\s+(?:0x[0-9a-fA-F]+|COMPRESSED|-)\s+0x([0-9a-fA-F]+)\s+(Code|Data|Zero)\s+(RO|RW)\s+\d+\s+(?:\*\s+)?(.+?)\s{2,}(\S.+)$/i
+  );
+  if (!match) return null;
+
+  return {
+    size: parseInt(match[1], 16),
+    type: match[2],
+    attr: match[3],
+    objectName: match[5].trim()
+  };
+}
+
 // ============================================================
 // Keil MDK Parser
 // ============================================================
@@ -144,6 +303,7 @@ export function parseKeil(content: string): MapParseResult {
   const sections: MapSection[] = [];
   const modules: MapModule[] = [];
   const memoryRegions: MemoryRegion[] = [];
+  const memoryMapModules = new Map<string, MapModule>();
 
   const lines = content.split(/\r?\n/);
 
@@ -153,6 +313,10 @@ export function parseKeil(content: string): MapParseResult {
   let inGlobalSymbols = false;
   let componentTable = '';
   let explicitTotals: MapTotals | null = null;
+  let hasComponentSizeModules = false;
+  let hasOfficialMemoryRegions = false;
+  let hasDerivedMemoryMapModules = false;
+  let usedInferredMemoryRegions = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -245,6 +409,7 @@ export function parseKeil(content: string): MapParseResult {
           rw_data: rwData,
           zi_data: ziData
         });
+        hasComponentSizeModules = true;
         continue;
       }
     }
@@ -267,6 +432,7 @@ export function parseKeil(content: string): MapParseResult {
           used: size,
           attributes: 'rx'
         });
+        hasOfficialMemoryRegions = true;
         continue;
       }
 
@@ -292,6 +458,7 @@ export function parseKeil(content: string): MapParseResult {
             used: size,
             attributes: attrs
           });
+          hasOfficialMemoryRegions = true;
         }
 
         sections.push({
@@ -301,6 +468,19 @@ export function parseKeil(content: string): MapParseResult {
           type: attrs === 'rx' ? '代码' : '数据',
           attributes: attrs === 'rx' ? 'RO' : 'RW'
         });
+        continue;
+      }
+
+      const memoryMapObjectLine = parseMemoryMapObjectLine(trimmed);
+      if (memoryMapObjectLine) {
+        addMemoryMapModuleUsage(
+          memoryMapModules,
+          memoryMapObjectLine.objectName,
+          memoryMapObjectLine.size,
+          memoryMapObjectLine.type,
+          memoryMapObjectLine.attr
+        );
+        hasDerivedMemoryMapModules = memoryMapModules.size > 0;
         continue;
       }
 
@@ -370,12 +550,28 @@ export function parseKeil(content: string): MapParseResult {
     }
   }
 
+  if (modules.length === 0 && memoryMapModules.size > 0) {
+    modules.push(...Array.from(memoryMapModules.values()));
+  }
+
   // If no memoryRegions parsed, infer from modules
   if (memoryRegions.length === 0) {
     inferMemoryRegions(modules, memoryRegions, sections);
+    usedInferredMemoryRegions = true;
   }
 
   const totals = computeTotals(sections, modules, memoryRegions, explicitTotals);
+  const sources = buildSources({
+    symbols,
+    sections,
+    modules,
+    memoryRegions,
+    explicitTotals,
+    hasComponentSizeModules,
+    hasDerivedMemoryMapModules: hasDerivedMemoryMapModules && !hasComponentSizeModules,
+    hasOfficialMemoryRegions,
+    usedInferredMemoryRegions
+  });
 
   return {
     formatType: 'Keil',
@@ -383,6 +579,7 @@ export function parseKeil(content: string): MapParseResult {
     sections,
     modules,
     memoryRegions,
-    totals
+    totals,
+    sources
   };
 }

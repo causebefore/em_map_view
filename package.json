@@ -3,14 +3,33 @@
   "displayName": "EM Map View",
   "description": "Keil MDK MAP file analysis for embedded developers",
   "version": "0.1.0",
-  "publisher": "your-publisher-id",
+  "publisher": "lbqdl",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lbqdl/em-map-view.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lbqdl/em-map-view/issues"
+  },
+  "homepage": "https://github.com/lbqdl/em-map-view#readme",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "keil",
+    "mdk",
+    "armlink",
+    "map",
+    "embedded",
+    "firmware",
+    "memory"
+  ],
   "activationEvents": [
+    "onLanguage:map",
     "onCommand:emMapView.openMapFile",
     "onCommand:emMapView.analyzeCurrentFile",
     "onCommand:emMapView.lookupAddress"
@@ -32,6 +51,17 @@
         "command": "emMapView.lookupAddress",
         "title": "EM Map View: Lookup Address",
         "icon": "$(symbol-field)"
+      }
+    ],
+    "languages": [
+      {
+        "id": "map",
+        "aliases": [
+          "Map"
+        ],
+        "extensions": [
+          ".map"
+        ]
       }
     ],
     "views": {
@@ -91,6 +121,7 @@
     }
   },
   "scripts": {
+    "vscode:prepublish": "npm run build",
     "build": "npm run build:ext && npm run build:webview",
     "build:ext": "node esbuild.config.mjs",
     "build:webview": "cd webview && npm run build",

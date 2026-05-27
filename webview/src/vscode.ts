@@ -12,8 +12,10 @@ export function postMessage(msg: any): void {
   vscode.postMessage(msg);
 }
 
-export function onMessage(handler: (msg: any) => void): void {
-  window.addEventListener('message', (e) => handler(e.data));
+export function onMessage(handler: (msg: any) => void): () => void {
+  const listener = (e: MessageEvent) => handler(e.data);
+  window.addEventListener('message', listener);
+  return () => window.removeEventListener('message', listener);
 }
 
 export function getState<T>(): T | undefined {

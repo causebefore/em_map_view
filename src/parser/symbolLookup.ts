@@ -1,5 +1,15 @@
 import { MapSymbol, SymbolLookupResult } from './types';
 
+export function parseHexAddress(value: string): number | null {
+  const normalized = value.trim().replace(/^0x/i, '');
+  if (!/^[0-9a-f]+$/i.test(normalized)) {
+    return null;
+  }
+
+  const address = Number.parseInt(normalized, 16);
+  return Number.isSafeInteger(address) ? address : null;
+}
+
 export function findSymbolByAddress(symbols: MapSymbol[], targetAddr: number): SymbolLookupResult | null {
   if (!symbols || symbols.length === 0) return null;
 
@@ -29,11 +39,13 @@ export function findSymbolByAddress(symbols: MapSymbol[], targetAddr: number): S
     }
   }
 
-  // Phase 3: approximate (nearest address)
+  // Phase 3: approximate to the nearest preceding symbol.
   let nearest: MapSymbol | null = null;
   let minDist = Infinity;
   for (const sym of symbols) {
-    const dist = Math.abs(targetAddr - sym.address);
+    if (sym.address > targetAddr) continue;
+
+    const dist = targetAddr - sym.address;
     if (dist < minDist) {
       minDist = dist;
       nearest = sym;

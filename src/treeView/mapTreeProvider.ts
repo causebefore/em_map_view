@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { MapParseResult } from '../parser/types';
+import { DataSource, MapParseResult } from '../parser/types';
 import { getConfig } from '../config';
 import { MapTreeItem, SummaryItem, ModuleItem, ModuleDetailItem, SymbolItem, MemoryRegionItem, AddressLookupItem } from './treeItems';
 import { SymbolFilterManager } from './symbolFilter';
@@ -17,6 +17,11 @@ export class MapTreeProvider implements vscode.TreeDataProvider<MapTreeItem> {
     this._onDidChangeTreeData.fire(undefined);
   }
 
+  clear(): void {
+    this.data = null;
+    this._onDidChangeTreeData.fire(undefined);
+  }
+
   getTreeItem(element: MapTreeItem): vscode.TreeItem {
     return element;
   }
@@ -26,11 +31,11 @@ export class MapTreeProvider implements vscode.TreeDataProvider<MapTreeItem> {
 
     if (!element) {
       return [
-        new SummaryItem(`Format: ${this.data.formatType}`),
-        new SummaryItem(`Flash: ${formatBytes(this.data.totals.flashUsed)} / ${formatBytes(this.data.totals.flashTotal)} (${percent(this.data.totals.flashUsed, this.data.totals.flashTotal)})`),
-        new SummaryItem(`RAM: ${formatBytes(this.data.totals.ramUsed)} / ${formatBytes(this.data.totals.ramTotal)} (${percent(this.data.totals.ramUsed, this.data.totals.ramTotal)})`),
-        new SummaryItem(`Symbols: ${this.data.symbols.length}`),
-        new SummaryItem(`Modules: ${this.data.modules.length}`),
+        new SummaryItem(`Format: ${this.data.formatType} [${sourceLabel(this.data.sources.formatType)}]`),
+        new SummaryItem(`Flash: ${formatBytes(this.data.totals.flashUsed)} / ${formatBytes(this.data.totals.flashTotal)} (${percent(this.data.totals.flashUsed, this.data.totals.flashTotal)}) [${sourceLabel(this.data.sources.totals.flashUsed)} / ${sourceLabel(this.data.sources.totals.flashTotal)}]`),
+        new SummaryItem(`RAM: ${formatBytes(this.data.totals.ramUsed)} / ${formatBytes(this.data.totals.ramTotal)} (${percent(this.data.totals.ramUsed, this.data.totals.ramTotal)}) [${sourceLabel(this.data.sources.totals.ramUsed)} / ${sourceLabel(this.data.sources.totals.ramTotal)}]`),
+        new SummaryItem(`Symbols: ${this.data.symbols.length} [${sourceLabel(this.data.sources.symbols)}]`),
+        new SummaryItem(`Modules: ${moduleCountLabel(this.data)} [${sourceLabel(this.data.sources.modules)}]`),
         ...this.getModuleRoots(),
         ...this.getSymbolItems(),
         ...this.getRegionItems(),
@@ -88,4 +93,12 @@ function formatBytes(bytes: number): string {
 
 function percent(used: number, total: number): string {
   return total > 0 ? `${((used / total) * 100).toFixed(1)}%` : '0%';
+}
+
+function sourceLabel(source: DataSource): string {
+  return source.kind === 'unavailable' ? 'N/A' : source.label;
+}
+
+function moduleCountLabel(data: MapParseResult): string {
+  return data.sources.modules.kind === 'unavailable' ? 'N/A' : String(data.modules.length);
 }

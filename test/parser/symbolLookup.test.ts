@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findSymbolByAddress } from '../../src/parser/symbolLookup';
+import { findSymbolByAddress, parseHexAddress } from '../../src/parser/symbolLookup';
 import { MapSymbol } from '../../src/parser/types';
 
 const symbols: MapSymbol[] = [
@@ -29,6 +29,12 @@ describe('findSymbolByAddress', () => {
     const result = findSymbolByAddress(symbols, 0x08000300);
     expect(result).toBeDefined();
     expect(result!.isApproximate).toBe(true);
+    expect(result!.offset).toBeGreaterThanOrEqual(0);
+  });
+
+  it('should not approximate to a symbol after the target address', () => {
+    const result = findSymbolByAddress(symbols, 0x08000000);
+    expect(result).toBeNull();
   });
 
   it('should return null for empty symbol list', () => {
@@ -40,5 +46,17 @@ describe('findSymbolByAddress', () => {
     const result = findSymbolByAddress(symbols, 0x08000155 + 200 - 1);
     expect(result).toBeDefined();
     expect(result!.name).toBe('main');
+  });
+});
+
+describe('parseHexAddress', () => {
+  it('parses prefixed and unprefixed hex addresses', () => {
+    expect(parseHexAddress('0x08000100')).toBe(0x08000100);
+    expect(parseHexAddress('08000100')).toBe(0x08000100);
+  });
+
+  it('rejects partially parsed invalid input', () => {
+    expect(parseHexAddress('0x08000100xyz')).toBeNull();
+    expect(parseHexAddress('')).toBeNull();
   });
 });
