@@ -1,0 +1,101 @@
+{
+  "name": "em-map-view",
+  "displayName": "EM Map View",
+  "description": "Keil MDK MAP file analysis for embedded developers",
+  "version": "0.1.0",
+  "publisher": "your-publisher-id",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onLanguage:map",
+    "onCommand:emMapView.openMapFile",
+    "onCommand:emMapView.analyzeCurrentFile"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "emMapView.openMapFile",
+        "title": "EM Map View: Open MAP File",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "emMapView.analyzeCurrentFile",
+        "title": "EM Map View: Analyze Current File",
+        "icon": "$(search)"
+      },
+      {
+        "command": "emMapView.lookupAddress",
+        "title": "EM Map View: Lookup Address",
+        "icon": "$(symbol-field)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "emMapView.analysis",
+          "name": "MAP Analysis",
+          "when": "emMapView:hasData"
+        }
+      ]
+    },
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "emMapView.openMapFile",
+          "when": "resourceExtname == .map",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        { "command": "emMapView.openMapFile" },
+        { "command": "emMapView.analyzeCurrentFile" },
+        { "command": "emMapView.lookupAddress" }
+      ]
+    },
+    "configuration": {
+      "title": "EM Map View",
+      "properties": {
+        "emMapView.warningThreshold": {
+          "type": "number",
+          "default": 80,
+          "description": "Memory usage warning threshold (%)",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "emMapView.criticalThreshold": {
+          "type": "number",
+          "default": 95,
+          "description": "Memory usage critical threshold (%)",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "emMapView.topModulesCount": {
+          "type": "number",
+          "default": 20,
+          "description": "Number of top modules to show in bar chart",
+          "minimum": 5,
+          "maximum": 100
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "npm run build:ext && npm run build:webview",
+    "build:ext": "node esbuild.config.mjs",
+    "build:webview": "cd webview && npm run build",
+    "watch": "node esbuild.config.mjs --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.22.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.2.0"
+  },
+  "dependencies": {}
+}

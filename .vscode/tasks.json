@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build:all",
+      "dependsOn": ["build:ext", "build:webview"],
+      "problemMatcher": []
+    },
+    {
+      "label": "build:ext",
+      "type": "npm",
+      "script": "build:ext",
+      "problemMatcher": ["$esbuild-watch"]
+    },
+    {
+      "label": "build:webview",
+      "type": "npm",
+      "script": "build:webview",
+      "problemMatcher": []
+    }
+  ]
+}
