@@ -71,21 +71,6 @@ export function activate(context: vscode.ExtensionContext) {
       webviewManager?.highlightModule(moduleName);
     })
   );
-
-  // Listen for .map file opens
-  context.subscriptions.push(
-    vscode.workspace.onDidOpenTextDocument((doc) => {
-      if (doc.uri.fsPath.endsWith('.map')) {
-        analyzeMapFile(doc.uri);
-      }
-    })
-  );
-
-  // Check if a .map file is already open
-  const activeEditor = vscode.window.activeTextEditor;
-  if (activeEditor && activeEditor.document.fileName.endsWith('.map')) {
-    analyzeMapFile(activeEditor.document.uri);
-  }
 }
 
 function analyzeMapFile(uri: vscode.Uri) {

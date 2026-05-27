@@ -11,7 +11,6 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
     "onCommand:emMapView.openMapFile",
     "onCommand:emMapView.analyzeCurrentFile",
     "onCommand:emMapView.lookupAddress"
