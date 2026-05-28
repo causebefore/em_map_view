@@ -12,6 +12,6 @@
 - TreeView sidebar integration
 - Data source provenance for Official, Computed, Derived, Inferred, and N/A values
 - Honest unsupported-format handling for detected GCC/ARM LD and IAR MAP files
-- Async MAP file loading to avoid blocking the VSCode extension host
+- Non-blocking file I/O via vscode.workspace.fs API (parsing is synchronous)
 - Webview message listener cleanup and latest-data handling for reused panels
 - Chinese README

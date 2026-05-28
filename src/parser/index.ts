@@ -5,7 +5,7 @@ import { findSymbolByAddress, parseHexAddress } from './symbolLookup';
 export { findSymbolByAddress, parseHexAddress };
 export type { MapParseResult, MapSymbol, SymbolLookupResult, MapModule, MemoryRegion, MapTotals, MapSection, DataSource, DataSourceKind, MapSources, MapTotalsSources } from './types';
 
-function emptySources(format: 'Keil' | 'GCC' | 'IAR'): MapSources {
+function emptySources(format: 'Keil' | 'GCC' | 'IAR' | 'Unknown'): MapSources {
   const unavailable = {
     kind: 'unavailable' as const,
     label: 'Unavailable',
@@ -13,11 +13,13 @@ function emptySources(format: 'Keil' | 'GCC' | 'IAR'): MapSources {
   };
   return {
     formatType: {
-      kind: format === 'Keil' ? 'unavailable' : 'official',
-      label: format === 'Keil' ? 'Unavailable' : 'Detected',
-      detail: format === 'Keil'
-        ? 'No MAP format could be detected.'
-        : `Detected ${format} format, but only Keil MDK parsing is currently supported.`
+      kind: format === 'Unknown' ? 'unavailable' : format === 'Keil' ? 'unavailable' : 'official',
+      label: format === 'Unknown' ? 'Unrecognized' : format === 'Keil' ? 'Unavailable' : 'Detected',
+      detail: format === 'Unknown'
+        ? 'The file content did not match any supported MAP format.'
+        : format === 'Keil'
+          ? 'No MAP format could be detected.'
+          : `Detected ${format} format, but only Keil MDK parsing is currently supported.`
     },
     symbols: unavailable,
     sections: unavailable,
@@ -59,13 +61,13 @@ export function detectFormat(content: string): 'Keil' | 'GCC' | 'IAR' | null {
 export function parseMapFile(content: string): MapParseResult {
   if (!content || typeof content !== 'string') {
     return {
-      formatType: 'Keil',
+      formatType: 'Unknown',
       symbols: [],
       sections: [],
       modules: [],
       memoryRegions: [],
       totals: { code: 0, roData: 0, rwData: 0, ziData: 0, flashTotal: 0, flashUsed: 0, ramTotal: 0, ramUsed: 0 },
-      sources: emptySources('Keil'),
+      sources: emptySources('Unknown'),
     };
   }
 
@@ -76,13 +78,14 @@ export function parseMapFile(content: string): MapParseResult {
   }
 
   // Only Keil is parsed for now; preserve detected format for honest UI state.
+  const resolvedFormat = format ?? 'Unknown';
   return {
-    formatType: format ?? 'Keil',
+    formatType: resolvedFormat,
     symbols: [],
     sections: [],
     modules: [],
     memoryRegions: [],
     totals: { code: 0, roData: 0, rwData: 0, ziData: 0, flashTotal: 0, flashUsed: 0, ramTotal: 0, ramUsed: 0 },
-    sources: emptySources(format ?? 'Keil'),
+    sources: emptySources(resolvedFormat),
   };
 }

@@ -8,6 +8,10 @@ export class MapTreeProvider implements vscode.TreeDataProvider<MapTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<MapTreeItem | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
+  dispose(): void {
+    this._onDidChangeTreeData.dispose();
+  }
+
   private data: MapParseResult | null = null;
   readonly filter = new SymbolFilterManager();
   private sortMode: 'flash' | 'code' | 'name' | 'ram' = 'flash';

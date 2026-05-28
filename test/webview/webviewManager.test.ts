@@ -142,4 +142,35 @@ describe('WebviewManager', () => {
     expect(reveal).not.toHaveBeenCalled();
     expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'updateData' }));
   });
+
+  it('handleMessage does not throw on null message', async () => {
+    const { WebviewManager } = await import('../../src/webview/webviewManager');
+    const manager = new WebviewManager({} as any);
+    manager.show(makeData('sym', 0x08000000));
+
+    expect(() => messageHandler?.(null)).not.toThrow();
+    expect(() => messageHandler?.(undefined)).not.toThrow();
+  });
+
+  it('moduleClicked with missing moduleName does not call executeCommand', async () => {
+    const { WebviewManager } = await import('../../src/webview/webviewManager');
+    const manager = new WebviewManager({} as any);
+    manager.show(makeData('sym', 0x08000000));
+    executeCommand.mockClear();
+
+    messageHandler?.({ type: 'moduleClicked' });
+
+    expect(executeCommand).not.toHaveBeenCalled();
+  });
+
+  it('moduleClicked with valid moduleName calls selectModule', async () => {
+    const { WebviewManager } = await import('../../src/webview/webviewManager');
+    const manager = new WebviewManager({} as any);
+    manager.show(makeData('sym', 0x08000000));
+    executeCommand.mockClear();
+
+    messageHandler?.({ type: 'moduleClicked', moduleName: 'main.o' });
+
+    expect(executeCommand).toHaveBeenCalledWith('emMapView.selectModule', 'main.o');
+  });
 });

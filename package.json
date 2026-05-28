@@ -4,6 +4,7 @@
   "description": "Keil MDK MAP file analysis for embedded developers",
   "version": "0.1.0",
   "publisher": "lbqdl",
+  "icon": "icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/lbqdl/em-map-view.git"
@@ -51,6 +52,11 @@
         "command": "emMapView.lookupAddress",
         "title": "EM Map View: Lookup Address",
         "icon": "$(symbol-field)"
+      },
+      {
+        "command": "emMapView.selectModule",
+        "title": "EM Map View: Select Module",
+        "icon": "$(symbol-class)"
       }
     ],
     "languages": [
@@ -77,7 +83,7 @@
       "explorer/context": [
         {
           "command": "emMapView.openMapFile",
-          "when": "resourceExtname == .map",
+          "when": "resourceExtname =~ /^\\.map$/i",
           "group": "navigation"
         }
       ],

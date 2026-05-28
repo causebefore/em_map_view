@@ -111,7 +111,9 @@ function analyzeMapContent(content: string) {
     currentData = parseMapFile(content);
 
     if (currentData.modules.length === 0 && currentData.symbols.length === 0) {
-      const format = currentData.formatType === 'Keil' ? 'Keil MDK' : currentData.formatType;
+      const format = currentData.formatType === 'Unknown' ? '未知'
+        : currentData.formatType === 'Keil' ? 'Keil MDK'
+        : currentData.formatType;
       currentData = null;
       vscode.commands.executeCommand('setContext', 'emMapView:hasData', false);
       treeProvider?.clear();

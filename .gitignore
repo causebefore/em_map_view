@@ -2,7 +2,8 @@ node_modules/
 dist/
 out/
 .codegraph/
-Template.map
+artifacts/
+.claude/
 *.vsix
 .DS_Store
 Thumbs.db

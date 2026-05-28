@@ -63,6 +63,7 @@ export class WebviewManager {
   }
 
   private handleMessage(msg: any): void {
+    if (!msg || typeof msg !== 'object') return;
     switch (msg.type) {
       case 'ready':
         this.postCurrentData();
@@ -73,7 +74,9 @@ export class WebviewManager {
         break;
       }
       case 'moduleClicked': {
-        vscode.commands.executeCommand('emMapView.selectModule', msg.moduleName);
+        if (typeof msg.moduleName === 'string' && msg.moduleName.length > 0) {
+          vscode.commands.executeCommand('emMapView.selectModule', msg.moduleName);
+        }
         break;
       }
     }

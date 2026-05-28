@@ -90,7 +90,7 @@ function computeTotals(
 
   if (totals.ramUsed === 0) {
     const ramRegions = memoryRegions.filter(
-      region => /RAM|IRAM|DRAM|SRAM|ER_IRAM|LR_IRAM/i.test(region.name) && !/^LR_/i.test(region.name)
+      region => /RAM|IRAM|DRAM|SRAM|ER_IRAM|LR_IRAM/i.test(region.name)
     );
     totals.ramUsed = ramRegions.reduce(
       (sum, region) => sum + (region.used || 0), 0
@@ -514,7 +514,7 @@ export function parseKeil(content: string): MapParseResult {
         let symType = '数据';
         const typeInfo = symMatch[3].trim();
         if (/Code|Thumb/i.test(typeInfo)) symType = '函数';
-        if (/Data|Number/i.test(typeInfo)) symType = '变量';
+        else if (/Data|Number/i.test(typeInfo)) symType = '变量';
 
         let scope = 'Global';
         if (/Local|Static/i.test(typeInfo)) scope = 'Local';
@@ -541,7 +541,7 @@ export function parseKeil(content: string): MapParseResult {
               address: parseInt(symFallback[2], 16),
               size: 0,
               section: '',
-              type: '函数',
+              type: '未知',
               scope: 'Global'
             });
           }

@@ -71,7 +71,7 @@ export interface MapSources {
 }
 
 export interface MapParseResult {
-  formatType: 'Keil' | 'GCC' | 'IAR';
+  formatType: 'Keil' | 'GCC' | 'IAR' | 'Unknown';
   symbols: MapSymbol[];
   sections: MapSection[];
   modules: MapModule[];

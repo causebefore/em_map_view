@@ -151,14 +151,14 @@ describe('parseKeil edge cases', () => {
   it('parseMapFile(null) does not throw', () => {
     expect(() => parseMapFile(null as any)).not.toThrow();
     const result = parseMapFile(null as any);
-    expect(result.formatType).toBe('Keil');
+    expect(result.formatType).toBe('Unknown');
     expect(result.modules).toEqual([]);
   });
 
   it('parseMapFile(undefined) does not throw', () => {
     expect(() => parseMapFile(undefined as any)).not.toThrow();
     const result = parseMapFile(undefined as any);
-    expect(result.formatType).toBe('Keil');
+    expect(result.formatType).toBe('Unknown');
     expect(result.symbols).toEqual([]);
   });
 
@@ -419,10 +419,10 @@ describe('parseMapFile format routing', () => {
     expect(result.sources.totals.code.kind).toBe('unavailable');
   });
 
-  it('unrecognized format returns empty result with formatType Keil (fallback)', () => {
+  it('unrecognized format returns empty result with formatType Unknown', () => {
     const content = 'some random content that does not match any format';
     const result = parseMapFile(content);
-    expect(result.formatType).toBe('Keil');
+    expect(result.formatType).toBe('Unknown');
     expect(result.modules).toEqual([]);
   });
 
@@ -432,5 +432,105 @@ describe('parseMapFile format routing', () => {
     expect(result.formatType).toBe('Keil');
     expect(result.modules.length).toBeGreaterThanOrEqual(2);
     expect(result.sources.modules.kind).toBe('official');
+  });
+});
+
+// ============================================================
+// Bug fix: symbol type classification with mixed type info
+// ============================================================
+
+function globalSymbolsWithMixedType(): string {
+  return `
+Component: ARM Compiler 6.19 Tool: armlink
+
+Global Symbols
+
+    Symbol Name                              Value     Ov Type        Size  Object(Section)
+
+    mixed_func                               0x08000101   Thumb Code Data    64  main.o(.text)
+    normal_func                              0x08000201   Thumb   Code       32  main.o(.text)
+    data_var                                 0x20000000   Data    Data        4  main.o(.bss)
+`;
+}
+
+describe('Bug fix: symbol type classification', () => {
+  it('should classify symbol with both Code and Data in typeInfo as function', () => {
+    const result = parseKeil(globalSymbolsWithMixedType());
+    const mixed = result.symbols.find(s => s.name === 'mixed_func');
+    expect(mixed).toBeDefined();
+    // Code should take priority over Data — symbol is a function
+    expect(mixed!.type).toBe('函数');
+  });
+});
+
+// ============================================================
+// Bug fix: fallback symbol type should be unknown, not function
+// ============================================================
+
+function globalSymbolsNonStandardFormat(): string {
+  return `
+Component: ARM Compiler 6.19 Tool: armlink
+
+Global Symbols
+
+    Symbol Name                              Value     Ov Type        Size  Object(Section)
+
+    __main                                   0x08000101   Thumb   Code       8  main.o(.text)
+    g_data_var                               0x20000000   Data    Data       4  main.o(.bss)
+    my_orphan_func                           0x08000300   Thumb   Code      32  orphan.o(.text)
+`;
+}
+
+describe('Bug fix: fallback symbol type', () => {
+  it('should classify fallback-matched symbol as unknown, not function', () => {
+    // Primary regex requires: name, 2+ spaces, 0xADDR, space, type, space, digits(size), space, object
+    // Fallback regex requires: name, 3+ spaces, 0xADDR, space, (anything)
+    // A line with name + 3+ spaces + 0xADDR + space + non-matching content triggers fallback.
+    // The line "my_label   0x08000400 extra_text" has no digit group for size, so primary won't match.
+    const content = `
+Component: ARM Compiler 6.19 Tool: armlink
+
+Global Symbols
+
+    Symbol Name                              Value     Ov Type        Size  Object(Section)
+
+    __main                                   0x08000101   Thumb   Code       8  main.o(.text)
+    my_label   0x08000400 extra_text
+`;
+    const result = parseKeil(content);
+    const fallbackSym = result.symbols.find(s => s.name === 'my_label');
+    // The fallback should NOT hardcode type as '函数' — it should be '未知'
+    expect(fallbackSym).toBeDefined();
+    expect(fallbackSym!.type).not.toBe('函数');
+  });
+});
+
+// ============================================================
+// Bug fix: ramUsed with only LR_ RAM regions
+// ============================================================
+
+function onlyLrRamRegion(): string {
+  return `
+Component: ARM Compiler 6.19 Tool: armlink
+
+Memory Map of the image
+
+  Load Region LR_IROM1 (Base: 0x08000000, Size: 0x00000200, Max: 0x00010000, ABSOLUTE)
+    Execution Region ER_IROM1 (Base: 0x08000000, Size: 0x00000200, Max: 0x00010000, ABSOLUTE)
+    Exec Addr    Load Addr    Size         Type   Attr      Idx    E Section Name        Object
+    0x08000000   0x08000000   0x00000100   Code   RO           1    .text               main.o
+    0x08000100   0x08000100   0x00000080   Code   RO           2    i.init              init.o
+
+  Load Region LR_IRAM (Base: 0x20000000, Size: 0x00000060, Max: 0x00004000, ABSOLUTE)
+`;
+}
+
+describe('Bug fix: ramUsed with only LR_ RAM regions', () => {
+  it('should compute ramUsed from LR_IRAM when no ER_IRAM exists', () => {
+    const result = parseKeil(onlyLrRamRegion());
+    // ramTotal should be set from LR_IRAM Max (0x4000)
+    expect(result.totals.ramTotal).toBe(0x00004000);
+    // ramUsed should be derived from LR_IRAM used size (0x20 + 0x40 = 0x60), not 0
+    expect(result.totals.ramUsed).toBe(0x00000060);
   });
 });

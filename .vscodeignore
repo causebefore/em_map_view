@@ -1,4 +1,6 @@
 .vscode/**
+.claude/**
+artifacts/**
 .gitignore
 src/**
 webview/**
