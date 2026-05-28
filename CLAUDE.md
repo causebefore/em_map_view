@@ -47,20 +47,21 @@ npx vsce publish    # 发布到 VSCode Marketplace
 
 ### 扩展↔Webview 消息协议
 
-| 方向 | type | 用途 |
-|------|------|------|
-| Host→Webview | `updateData` | 传递 MapParseResult 数据 |
-| Host→Webview | `config` | 传递配置项 |
-| Host→Webview | `addressLookupResult` | 地址查询结果 |
-| Host→Webview | `highlightModule` | 高亮指定模块 |
-| Host→Webview | `resetTransientState` | 切换数据时重置 UI |
-| Webview→Host | `ready` | Webview 就绪，请求数据 |
-| Webview→Host | `requestAddressLookup` | 请求地址查询 |
-| Webview→Host | `moduleClicked` | 用户点击模块 |
+| 方向         | type                   | 用途                     |
+| ------------ | ---------------------- | ------------------------ |
+| Host→Webview | `updateData`           | 传递 MapParseResult 数据 |
+| Host→Webview | `config`               | 传递配置项               |
+| Host→Webview | `addressLookupResult`  | 地址查询结果             |
+| Host→Webview | `highlightModule`      | 高亮指定模块             |
+| Host→Webview | `resetTransientState`  | 切换数据时重置 UI        |
+| Webview→Host | `ready`                | Webview 就绪，请求数据   |
+| Webview→Host | `requestAddressLookup` | 请求地址查询             |
+| Webview→Host | `moduleClicked`        | 用户点击模块             |
 
 ### 数据来源标记体系
 
 解析结果中所有字段都有来源标记（`DataSourceKind`）：
+
 - `official` — 直接来自 Keil MAP 文件官方字段（如 Grand Totals）
 - `computed` — 由官方数据计算得出
 - `derived` — 从相关行聚合推导（如 Memory Map Object 行）
@@ -80,6 +81,12 @@ npx vsce publish    # 发布到 VSCode Marketplace
   sources: MapSources,       // 每个字段的数据来源标记
 }
 ```
+
+## 分支策略
+
+- **`main` 分支仅用于 release 和展示**，禁止直接在 `main` 分支上开发。
+- 所有开发工作在 `dev` 分支上进行。新功能、bug 修复等都从 `dev` 分支拉出 feature/bugfix 分支，完成后合并回 `dev`。
+- 当 `dev` 分支达到可发布状态时，合并到 `main` 并打 tag 发布。
 
 ## 开发要求
 

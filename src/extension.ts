@@ -1,15 +1,15 @@
 import * as vscode from 'vscode';
-import { TextDecoder } from 'util';
 import { findSymbolByAddress, parseHexAddress, parseMapFile, MapParseResult } from './parser';
 import { MapTreeProvider } from './treeView/mapTreeProvider';
 import { WebviewManager } from './webview/webviewManager';
 
 let currentData: MapParseResult | null = null;
+let currentMapDocumentUri: string | null = null;
 let treeProvider: MapTreeProvider | undefined;
 let webviewManager: WebviewManager | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  vscode.commands.executeCommand('setContext', 'emMapView:hasData', false);
+  clearAnalysisResult();
 
   // Initialize TreeView
   treeProvider = new MapTreeProvider();
@@ -21,16 +21,29 @@ export function activate(context: vscode.ExtensionContext) {
   webviewManager = new WebviewManager(context.extensionUri);
   context.subscriptions.push(webviewManager);
 
-  const activeEditor = vscode.window.activeTextEditor;
-  if (activeEditor && isMapDocument(activeEditor.document)) {
-    analyzeMapContent(activeEditor.document.getText());
-  }
+  syncActiveEditor(vscode.window.activeTextEditor);
 
   context.subscriptions.push(
-    vscode.workspace.onDidOpenTextDocument((document) => {
-      if (isMapDocument(document)) {
-        analyzeMapContent(document.getText());
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
+      syncActiveEditor(editor);
+    }),
+
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      if (
+        currentMapDocumentUri &&
+        event.document.uri.toString() === currentMapDocumentUri &&
+        isMapDocument(event.document)
+      ) {
+        analyzeDocument(event.document, { revealWebview: false });
       }
+    }),
+
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (!event.affectsConfiguration('emMapView') || !currentData) {
+        return;
+      }
+      treeProvider?.refresh(currentData);
+      webviewManager?.refreshConfig();
     })
   );
 
@@ -53,7 +66,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('emMapView.analyzeCurrentFile', async () => {
       const editor = vscode.window.activeTextEditor;
       if (editor && isMapDocument(editor.document)) {
-        analyzeMapContent(editor.document.getText());
+        analyzeDocument(editor.document, { revealWebview: true });
       } else {
         vscode.window.showWarningMessage('Current file is not a .map file');
       }
@@ -97,37 +110,58 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
+function syncActiveEditor(editor: vscode.TextEditor | undefined): void {
+  if (editor && isMapDocument(editor.document)) {
+    analyzeDocument(editor.document, { revealWebview: false });
+  }
+}
+
 async function analyzeMapFile(uri: vscode.Uri) {
   try {
-    const bytes = await vscode.workspace.fs.readFile(uri);
-    analyzeMapContent(new TextDecoder('utf-8').decode(bytes));
+    const document = await vscode.workspace.openTextDocument(uri);
+    analyzeDocument(document, { revealWebview: true });
   } catch (err: unknown) {
+    clearAnalysisResult();
     vscode.window.showErrorMessage(`MAP 文件读取失败: ${errorMessage(err)}`);
   }
 }
 
-function analyzeMapContent(content: string) {
-  try {
-    currentData = parseMapFile(content);
+function analyzeDocument(document: vscode.TextDocument, options: { revealWebview: boolean }): void {
+  currentMapDocumentUri = document.uri.toString();
+  analyzeMapContent(document.getText(), options);
+}
 
-    if (currentData.modules.length === 0 && currentData.symbols.length === 0) {
-      const format = currentData.formatType === 'Unknown' ? '未知'
-        : currentData.formatType === 'Keil' ? 'Keil MDK'
-        : currentData.formatType;
-      currentData = null;
-      vscode.commands.executeCommand('setContext', 'emMapView:hasData', false);
-      treeProvider?.clear();
-      webviewManager?.clear();
+function analyzeMapContent(content: string, options: { revealWebview: boolean }) {
+  try {
+    const parsed = parseMapFile(content);
+
+    if (parsed.modules.length === 0 && parsed.symbols.length === 0) {
+      const format = parsed.formatType === 'Unknown' ? '未知'
+        : parsed.formatType === 'Keil' ? 'Keil MDK'
+        : parsed.formatType;
+      clearAnalysisResult();
       vscode.window.showWarningMessage(`无法解析 ${format} MAP 文件：当前仅支持 Keil MDK 格式`);
       return;
     }
 
-    vscode.commands.executeCommand('setContext', 'emMapView:hasData', true);
-    treeProvider?.refresh(currentData);
-    webviewManager?.show(currentData);
+    currentData = parsed;
+    void vscode.commands.executeCommand('setContext', 'emMapView:hasData', true);
+    treeProvider?.refresh(parsed);
+    webviewManager?.setData(parsed);
+    if (options.revealWebview) {
+      webviewManager?.show(parsed);
+    }
   } catch (err: unknown) {
+    clearAnalysisResult();
     vscode.window.showErrorMessage(`MAP 文件解析失败: ${errorMessage(err)}`);
   }
+}
+
+function clearAnalysisResult(): void {
+  currentData = null;
+  void vscode.commands.executeCommand('setContext', 'emMapView:hasData', false);
+  treeProvider?.clear();
+  webviewManager?.clear();
 }
 
 function isMapDocument(document: vscode.TextDocument): boolean {

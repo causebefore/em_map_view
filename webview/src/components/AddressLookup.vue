@@ -8,6 +8,12 @@ const input = ref('');
 const results = ref<(LookupResult | null)[]>([]);
 const searched = ref(false);
 
+function resetLookupState() {
+  input.value = '';
+  results.value = [];
+  searched.value = false;
+}
+
 function lookup() {
   const addresses = input.value.split(/[\n,;]+/).map(s => s.trim()).filter(s => s.length > 0);
   if (addresses.length === 0) return;
@@ -16,6 +22,11 @@ function lookup() {
 }
 
 const disposeMessageListener = onMessage((msg) => {
+  if (msg.type === 'resetTransientState') {
+    resetLookupState();
+    return;
+  }
+
   if (msg.type === 'addressLookupResult') {
     searched.value = true;
     if (Array.isArray(msg.addresses)) {

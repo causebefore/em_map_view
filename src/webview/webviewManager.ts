@@ -11,6 +11,7 @@ export class WebviewManager {
   constructor(private readonly extensionUri: vscode.Uri) {}
 
   show(data: MapParseResult): void {
+    const dataChanged = this.currentData !== data;
     this.currentData = data;
 
     if (!this.panel) {
@@ -36,9 +37,26 @@ export class WebviewManager {
       });
     }
 
+    if (dataChanged) {
+      this.postResetTransientState();
+    }
     this.postCurrentData();
 
     this.panel.reveal(vscode.ViewColumn.Beside, true);
+  }
+
+  setData(data: MapParseResult): void {
+    const dataChanged = this.currentData !== data;
+    this.currentData = data;
+
+    if (!this.panel) {
+      return;
+    }
+
+    if (dataChanged) {
+      this.postResetTransientState();
+    }
+    this.postCurrentData();
   }
 
   lookupAddresses(addresses: string[]): void {
@@ -55,7 +73,15 @@ export class WebviewManager {
 
   clear(): void {
     this.currentData = undefined;
+    this.postResetTransientState();
     this.panel?.webview.postMessage({ type: 'updateData', data: null });
+  }
+
+  refreshConfig(): void {
+    if (!this.panel) {
+      return;
+    }
+    this.postConfig();
   }
 
   highlightModule(moduleName: string): void {
@@ -85,14 +111,26 @@ export class WebviewManager {
   private postCurrentData(): void {
     if (!this.panel || !this.currentData) return;
 
-    const config = getConfig();
     this.panel.webview.postMessage({ type: 'updateData', data: this.currentData });
+    this.postConfig();
+  }
+
+  private postConfig(): void {
+    if (!this.panel) {
+      return;
+    }
+
+    const config = getConfig();
     this.panel.webview.postMessage({
       type: 'config',
       warningThreshold: config.warningThreshold,
       criticalThreshold: config.criticalThreshold,
       topModulesCount: config.topModulesCount,
     });
+  }
+
+  private postResetTransientState(): void {
+    this.panel?.webview.postMessage({ type: 'resetTransientState' });
   }
 
   dispose(): void {
