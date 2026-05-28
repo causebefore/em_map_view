@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Keep analysis in sync with the active `.map` editor, in-place document changes, and configuration updates
+- Clear stale webview lookup state when switching MAP data or clearing the current analysis
+- Use VS Code text documents for file loading to improve compatibility with non-UTF-8 MAP files
+- Clear previous analysis results on parse failures to avoid showing stale data
+
 ## 0.1.0
 
 - Initial release

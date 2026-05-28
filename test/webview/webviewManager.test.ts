@@ -173,4 +173,30 @@ describe('WebviewManager', () => {
 
     expect(executeCommand).toHaveBeenCalledWith('emMapView.selectModule', 'main.o');
   });
+
+  it('resets transient webview state when reused with new data', async () => {
+    const { WebviewManager } = await import('../../src/webview/webviewManager');
+    const manager = new WebviewManager({} as any);
+
+    manager.show(makeData('first_map_symbol', 0x08000000));
+    postMessage.mockClear();
+
+    manager.setData(makeData('second_map_symbol', 0x20000000));
+
+    expect(postMessage).toHaveBeenCalledWith({ type: 'resetTransientState' });
+    expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'updateData' }));
+  });
+
+  it('clear resets transient state before clearing data', async () => {
+    const { WebviewManager } = await import('../../src/webview/webviewManager');
+    const manager = new WebviewManager({} as any);
+
+    manager.show(makeData('sym', 0x08000000));
+    postMessage.mockClear();
+
+    manager.clear();
+
+    expect(postMessage).toHaveBeenNthCalledWith(1, { type: 'resetTransientState' });
+    expect(postMessage).toHaveBeenNthCalledWith(2, { type: 'updateData', data: null });
+  });
 });
