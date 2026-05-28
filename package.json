@@ -7,12 +7,12 @@
   "icon": "icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lbqdl/em-map-view.git"
+    "url": "https://github.com/causebefore/em_map_view.git"
   },
   "bugs": {
-    "url": "https://github.com/lbqdl/em-map-view/issues"
+    "url": "https://github.com/causebefore/em_map_view/issues"
   },
-  "homepage": "https://github.com/lbqdl/em-map-view#readme",
+  "homepage": "https://github.com/causebefore/em_map_view#readme",
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
